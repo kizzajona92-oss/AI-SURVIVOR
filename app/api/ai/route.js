@@ -5,7 +5,7 @@ export async function POST(request) {
 
     if (!apiKey) {
       return Response.json(
-        { error: "Gemini API key is missing. Check Vercel settings." },
+        { error: "Gemini API key is missing in Vercel." },
         { status: 500 }
       );
     }
@@ -15,31 +15,55 @@ export async function POST(request) {
 
     if (!question) {
       return Response.json(
-        { error: "Please enter what you want AI SURVIVOR to research." },
+        { error: "Please enter a research question." },
+        { status: 400 }
+      );
+    }
+
+    if (question.length > 4000) {
+      return Response.json(
+        { error: "Please keep your research question under 4000 characters." },
         { status: 400 }
       );
     }
 
     const prompt = `
-You are the worldwide business research engine for AI SURVIVOR $.
+You are AI SURVIVOR $, a careful worldwide business research assistant.
 
-Research real, legitimate ways to earn income anywhere on the internet.
-Prioritise opportunities requiring zero or very little starting capital.
+Your mission is to help the owner discover legitimate ways to earn
+income online from anywhere in the world.
 
-The owner is based in Uganda. Check whether people in Uganda can
-register, participate and withdraw payments wherever possible.
+OWNER LOCATION: Uganda.
+STARTING CAPITAL: Zero.
 
-Look for actual opportunities, platforms and current listings.
-Include source links, eligibility, skills required, costs, payment
-methods, risks and realistic barriers.
+Prioritise:
+1. Genuine remote jobs.
+2. Freelancing opportunities.
+3. Online services and digital businesses.
+4. Legitimate marketplaces.
+5. Businesses requiring little or no starting capital.
 
-Separate verified facts from estimates. Never invent listings,
-earnings, payment methods or eligibility. If something cannot be
-verified, say so clearly. Warn about scams and upfront-fee risks.
+For every suggestion explain:
+- What the opportunity involves.
+- Where to find it.
+- Whether Ugandans may participate.
+- How payment may be received.
+- Skills required.
+- Starting costs.
+- Risks and possible scams.
+- Realistic challenges.
 
-Do not register, apply, purchase, pay or contact anyone.
+IMPORTANT RULES:
+- Never invent companies, websites, job listings or earnings.
+- Never guarantee income.
+- Clearly identify information that needs verification.
+- Never recommend paying registration or recruitment fees without
+  strong independent verification.
+- Never register, apply, purchase or spend money for the owner.
+- Be honest when current information is unavailable.
+- Prefer practical steps the owner can take with zero capital.
 
-User's research request:
+USER REQUEST:
 ${question}
 `;
 
@@ -54,10 +78,15 @@ ${question}
         body: JSON.stringify({
           contents: [
             {
-              parts: [{ text: prompt }]
+              parts: [
+                { text: prompt }
+              ]
             }
           ],
-          tools: [{ google_search: {} }]
+          generationConfig: {
+            temperature: 0.5,
+            maxOutputTokens: 2500
+          }
         })
       }
     );
@@ -66,27 +95,39 @@ ${question}
 
     if (!response.ok) {
       return Response.json(
-        { error: result.error?.message || "Gemini request failed." },
+        {
+          error:
+            result.error?.message ||
+            "The AI provider could not complete the request."
+        },
         { status: response.status }
       );
     }
 
-    const answer = (result.candidates?.[0]?.content?.parts || [])
+    const answer = (
+      result.candidates?.[0]?.content?.parts || []
+    )
       .map((part) => part.text || "")
       .join("\n");
 
-    const sources =
-      result.candidates?.[0]?.groundingMetadata?.groundingChunks
-        ?.map((item) => ({
-          title: item.web?.title || "Web source",
-          url: item.web?.uri
-        }))
-        .filter((item) => item.url) || [];
+    if (!answer) {
+      return Response.json(
+        { error: "The AI returned an empty answer. Please try again." },
+        { status: 502 }
+      );
+    }
 
-    return Response.json({ answer, sources });
+    return Response.json({
+      answer,
+      sources: [],
+      provider: "Gemini"
+    });
+
   } catch (error) {
     return Response.json(
-      { error: "Research failed. Please try again." },
+      {
+        error: "Something went wrong while researching. Please try again."
+      },
       { status: 500 }
     );
   }

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState } from "react";
@@ -12,6 +13,14 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+
+  const [researchQuestion, setResearchQuestion] = useState(
+    "Find legitimate worldwide online income opportunities that require zero or very little starting capital. Check whether someone in Uganda can join and withdraw earnings."
+  );
+  const [researching, setResearching] = useState(false);
+  const [researchAnswer, setResearchAnswer] = useState("");
+  const [researchSources, setResearchSources] = useState([]);
+  const [researchError, setResearchError] = useState("");
 
   useEffect(() => {
     async function start() {
@@ -87,6 +96,39 @@ export default function Home() {
     }
   }
 
+  async function runResearch(e) {
+    e.preventDefault();
+    setResearching(true);
+    setResearchError("");
+    setResearchAnswer("");
+    setResearchSources([]);
+
+    try {
+      const response = await fetch("/api/ai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question: researchQuestion })
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Research request failed.");
+      }
+
+      setResearchAnswer(
+        result.answer || "The AI returned no text. Please try again."
+      );
+      setResearchSources(result.sources || []);
+    } catch (error) {
+      setResearchError(
+        error.message || "Could not complete research. Please try again."
+      );
+    } finally {
+      setResearching(false);
+    }
+  }
+
   const sections = [
     "AI Business Opportunities",
     "My Businesses",
@@ -137,6 +179,74 @@ export default function Home() {
 
       <section style={styles.panel}>
         <h2>{active}</h2>
+
+        {active === "AI Business Opportunities" && (
+          <div>
+            <p>
+              Ask AI SURVIVOR to research real online income opportunities
+              from websites worldwide. It will look for source links and
+              check Uganda eligibility where possible.
+            </p>
+
+            <form onSubmit={runResearch}>
+              <textarea
+                style={{ ...styles.input, minHeight: "130px" }}
+                value={researchQuestion}
+                onChange={(e) => setResearchQuestion(e.target.value)}
+                placeholder="What should AI SURVIVOR research?"
+                required
+              />
+
+              <button
+                type="submit"
+                disabled={researching || !researchQuestion.trim()}
+                style={styles.save}
+              >
+                {researching
+                  ? "Researching worldwide..."
+                  : "Research Opportunities"}
+              </button>
+            </form>
+
+            {researchError && (
+              <p style={{ color: "#ff8b8b", whiteSpace: "pre-wrap" }}>
+                {researchError}
+              </p>
+            )}
+
+            {researchAnswer && (
+              <div style={styles.business}>
+                <h3>Research Results</h3>
+                <p style={{ whiteSpace: "pre-wrap", lineHeight: 1.6 }}>
+                  {researchAnswer}
+                </p>
+
+                {researchSources.length > 0 && (
+                  <>
+                    <h3>Web Sources</h3>
+                    {researchSources.map((source, index) => (
+                      <p key={source.url}>
+                        <a
+                          href={source.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          style={styles.link}
+                        >
+                          {index + 1}. {source.title}
+                        </a>
+                      </p>
+                    ))}
+                  </>
+                )}
+              </div>
+            )}
+
+            <p style={{ fontSize: "13px", opacity: 0.8 }}>
+              Research is informational, not guaranteed income. AI SURVIVOR
+              will not register, apply, spend money or contact anyone for you.
+            </p>
+          </div>
+        )}
 
         {active === "My Businesses" && (
           <>
@@ -189,9 +299,10 @@ export default function Home() {
           </>
         )}
 
-        {active !== "My Businesses" && (
-          <p>This section will be developed in the next stages.</p>
-        )}
+        {active !== "My Businesses" &&
+          active !== "AI Business Opportunities" && (
+            <p>This section will be developed in the next stages.</p>
+          )}
 
         {message && <p style={{ color: "#36d98a" }}>{message}</p>}
       </section>
